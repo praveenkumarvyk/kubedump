@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { Pod, Volume, VolumeMount, Container } from 'kubernetes-types/core/v1';
 import os from 'os';
 import path from 'path';
 import yaml from 'js-yaml';
@@ -8,11 +9,6 @@ import { name } from '../package.json';
 
 const prefix = `__${name}`;
 const workingPath = path.resolve(process.cwd(), 'backups');
-
-export interface KubeDumpOptions {
-  dryrun: boolean;
-  ns?: string;
-}
 
 export default class KubeDump {
   public options: KubeDumpOptions;
@@ -26,89 +22,96 @@ export default class KubeDump {
 
   async dump(ns?: string) {
     if (!ns) ns = this.options.ns || (await this.getActiveNs());
-    const { dryrun } = this.options;
-    const backupScriptPath = path.resolve(__dirname, '../scripts/backup.sh');
     await mapSeries(
       Object.values(await this.getCpvmsByPvcName()),
-      async (cpvms: any) => {
-        await mapSeries(cpvms, async ({ pod, volumeMount, volume }: any) => {
-          if (ns && pod.metadata.namespace !== ns) return;
-          const { mountPath } = volumeMount;
-          const pvcName = volume?.persistentVolumeClaim?.claimName;
-          const volumeName = volume?.name;
-          const backupPath = path.resolve(workingPath, pvcName);
-          await fs.mkdirs(backupPath);
-          await kubectl(
-            [
-              'exec',
-              '-n',
-              pod.metadata.namespace,
-              pod.metadata.name,
-              '--',
-              'sh',
-              '-c',
-              `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
-            ],
-            { dryrun, json: false, pipe: true }
-          );
-          await kubectl(
-            [
-              'cp',
-              backupScriptPath,
-              `${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}_backup.sh`
-            ],
-            { dryrun, json: false, pipe: true }
-          );
-          await kubectl(
-            [
-              'exec',
-              '-n',
-              pod.metadata.namespace,
-              pod.metadata.name,
-              '--',
-              'sh',
-              '-c',
-              `"cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh ${mountPath}/${prefix}_backup.sh ${prefix} ${volumeName}"`
-            ],
-            { dryrun, json: false, pipe: true }
-          );
-          await kubectl(
-            [
-              'cp',
-              `${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}/payload/payload.tar.gz`,
-              `${backupPath}/payload.tar.gz`
-            ],
-            { dryrun, json: false, pipe: true }
-          );
-          await kubectl(
-            [
-              'exec',
-              '-n',
-              pod.metadata.namespace,
-              pod.metadata.name,
-              '--',
-              'sh',
-              '-c',
-              `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
-            ],
-            { dryrun, json: false, pipe: true }
-          );
-          if (dryrun) process.stdout.write('\n');
+      async (cpvms: Cpvm[]) => {
+        await mapSeries(cpvms, async (cpvm: Cpvm) => {
+          const { pod } = cpvm;
+          if (ns && pod.metadata?.namespace !== ns) return;
+          await this.dumpData(cpvm);
         });
       }
     );
   }
 
-  async getCpvmsByPvcName() {
+  async dumpData({ pod, volumeMount, volume }: Cpvm) {
+    const backupScriptPath = path.resolve(__dirname, '../scripts/backup.sh');
+    const { dryrun } = this.options;
+    const { mountPath } = volumeMount;
+    const volumeName = volume?.name;
+    const backupPath = path.resolve(workingPath, pod.metadata?.name || '');
+    await fs.mkdirs(backupPath);
+    await kubectl(
+      [
+        'exec',
+        '-n',
+        pod.metadata?.namespace || '',
+        pod.metadata?.name || '',
+        '--',
+        'sh',
+        '-c',
+        `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
+      ],
+      { dryrun, json: false, pipe: true }
+    );
+    await kubectl(
+      [
+        'cp',
+        backupScriptPath,
+        `${pod.metadata?.namespace}/${pod.metadata?.name}:${mountPath}/${prefix}_backup.sh`
+      ],
+      { dryrun, json: false, pipe: true }
+    );
+    await kubectl(
+      [
+        'exec',
+        '-n',
+        pod.metadata?.namespace || '',
+        pod.metadata?.name || '',
+        '--',
+        'sh',
+        '-c',
+        `"cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh ${mountPath}/${prefix}_backup.sh ${prefix} ${volumeName}"`
+      ],
+      { dryrun, json: false, pipe: true }
+    );
+    await kubectl(
+      [
+        'cp',
+        `${pod.metadata?.namespace}/${pod.metadata?.name}:${mountPath}/${prefix}/payload/payload.tar.gz`,
+        `${backupPath}/payload.tar.gz`
+      ],
+      { dryrun, json: false, pipe: true }
+    );
+    await kubectl(
+      [
+        'exec',
+        '-n',
+        pod.metadata?.namespace || '',
+        pod.metadata?.name || '',
+        '--',
+        'sh',
+        '-c',
+        `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
+      ],
+      { dryrun, json: false, pipe: true }
+    );
+    if (dryrun) process.stdout.write('\n');
+  }
+
+  async getCpvmsByPvcName(): Promise<CpvmsByPvcName> {
     return Object.entries(await this.getPvsByPvcName()).reduce(
-      (cpvmsByPvcName: any, [pvcName, { pod, volume }]: [string, any]) => {
+      (
+        cpvmsByPvcName: CpvmsByPvcName,
+        [pvName, { pod, volume }]: [string, Pv]
+      ) => {
         const cpvms = Object.values(
-          pod.spec.containers
-            .reduce((cpvms: any[], container: any) => {
+          (pod.spec?.containers || [])
+            .reduce((cpvms: Cpvm[], container: Container) => {
               return [
                 ...cpvms,
-                ...container.volumeMounts.reduce(
-                  (cpvms: any[], volumeMount: any) => {
+                ...(container.volumeMounts || []).reduce(
+                  (cpvms: Cpvm[], volumeMount: VolumeMount) => {
                     if (volumeMount.name === volume?.name) {
                       cpvms.push({
                         volumeMount,
@@ -123,7 +126,7 @@ export default class KubeDump {
                 )
               ];
             }, [])
-            .reduce((cpvms: any, cpvm: any) => {
+            .reduce((cpvms: CpvmsHashMap, cpvm: Cpvm) => {
               const { mountPath, name, subPath } = cpvm.volumeMount;
               cpvms[
                 `${mountPath}:${name}${subPath ? `:${subPath}` : ''}`
@@ -131,16 +134,19 @@ export default class KubeDump {
               return cpvms;
             }, {})
         );
-        const rootCpvm: any = cpvms.reduce((rootCpvm: any, cpvm: any) => {
-          const { volumeMount } = cpvm;
-          if (!volumeMount.subPath) rootCpvm[volumeMount.name] = cpvm;
-          return rootCpvm;
-        }, {});
-        cpvmsByPvcName[pvcName] = cpvms.reduce((cpvms: any, cpvm: any) => {
+        const rootCpvm: any = cpvms.reduce(
+          (rootCpvm: CpvmsHashMap, cpvm: Cpvm) => {
+            const { volumeMount } = cpvm;
+            if (!volumeMount.subPath) rootCpvm[volumeMount.name] = cpvm;
+            return rootCpvm;
+          },
+          {}
+        );
+        cpvmsByPvcName[pvName] = cpvms.reduce((cpvms: Cpvm[], cpvm: Cpvm) => {
           const { volumeMount } = cpvm;
           if (rootCpvm[volumeMount.name]) {
             const nameSet = new Set(
-              cpvms.map(({ volumeMount }: any) => volumeMount.name)
+              cpvms.map(({ volumeMount }: Cpvm) => volumeMount.name)
             );
             if (!nameSet.has(volumeMount.name)) {
               cpvms.push(rootCpvm[volumeMount.name]);
@@ -156,14 +162,17 @@ export default class KubeDump {
     );
   }
 
-  async getPvsByPvcName() {
-    return (await this.getPods()).reduce((pods: any, pod: any) => {
-      pod.spec.volumes.map((volume: any) => {
-        const claimName = volume?.persistentVolumeClaim?.claimName;
-        if (claimName) pods[claimName] = { pod, volume };
-      });
-      return pods;
-    }, {});
+  async getPvsByPvcName(): Promise<PvsByPvcName> {
+    return (await this.getPods()).reduce(
+      (pvsByPvcName: PvsByPvcName, pod: Pod) => {
+        (pod.spec?.volumes || []).map((volume: any) => {
+          const claimName = volume?.persistentVolumeClaim?.claimName;
+          if (claimName) pvsByPvcName[claimName] = { pod, volume };
+        });
+        return pvsByPvcName;
+      },
+      {}
+    );
   }
 
   async getPods() {
@@ -185,4 +194,33 @@ export default class KubeDump {
     )?.context;
     return context.namespace;
   }
+}
+
+export interface Cpvm {
+  container: Container;
+  pod: Pod;
+  volume: Volume;
+  volumeMount: VolumeMount;
+}
+
+export interface Pv {
+  pod: Pod;
+  volume: Volume;
+}
+
+export interface CpvmsByPvcName {
+  [pvcName: string]: Cpvm[];
+}
+
+export interface CpvmsHashMap {
+  [key: string]: Cpvm;
+}
+
+export interface PvsByPvcName {
+  [pvcName: string]: Pv;
+}
+
+export interface KubeDumpOptions {
+  dryrun: boolean;
+  ns?: string;
 }
