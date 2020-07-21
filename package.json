@@ -19,8 +19,9 @@
     "url": "https://codejam.ninja"
   },
   "files": [
+    "bin",
     "lib",
-    "bin"
+    "scripts"
   ],
   "main": "lib/index.js",
   "bin": {

@@ -1,21 +1,23 @@
+import path from 'path';
 import kubectl from './kubectl';
 import { mapSeries } from './helpers';
 import { name } from '../package.json';
 
-const prefix = `__${name}_`;
+const prefix = `__${name}`;
 
 export default class KubeDump {
   async dump() {
+    const backupScriptPath = path.resolve(__dirname, '../scripts/backup.sh');
     await mapSeries(
       Object.values(await this.getCpvmsByPvcName()),
       async (cpvms: any) => {
         await mapSeries(cpvms, async ({ pod, volumeMount }: any) => {
           const { mountPath } = volumeMount;
           console.log(
-            `kubectl cp backup.sh ${pod.metadata.name}:${mountPath}/${prefix}backup.sh`
+            `kubectl cp ${backupScriptPath} ${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}_backup.sh`
           );
           console.log(
-            `kubectl exec -it ${pod.metadata.name} -- cd ${mountPath} && sh ${prefix}backup.sh ${prefix} && rm ${prefix}backup.sh`
+            `kubectl exec -it ${pod.metadata.namespace}/${pod.metadata.name} -- cd ${mountPath} && sh ${mountPath}/${prefix}_backup.sh ${prefix} && rm ${mountPath}/${prefix}_backup.sh && rm -rf ${mountPath}/${prefix}`
           );
           console.log();
         });
