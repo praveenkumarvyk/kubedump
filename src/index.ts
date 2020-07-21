@@ -1,16 +1,25 @@
 import kubectl from './kubectl';
+import { mapSeries } from './helpers';
+import { name } from '../package.json';
+
+const prefix = `__${name}_`;
 
 export default class KubeDump {
   async dump() {
-    Object.entries(await this.getCpvmsByPvcName()).reduce(
-      (cpvms: any, [key, value]: [string, any]) => {
-        console.log(
-          key,
-          value.map(({ volumeMount }: any) => volumeMount)
-        );
-        return cpvms;
-      },
-      {}
+    await mapSeries(
+      Object.values(await this.getCpvmsByPvcName()),
+      async (cpvms: any) => {
+        await mapSeries(cpvms, async ({ pod, volumeMount }: any) => {
+          const { mountPath } = volumeMount;
+          console.log(
+            `kubectl cp backup.sh ${pod.metadata.name}:${mountPath}/${prefix}backup.sh`
+          );
+          console.log(
+            `kubectl exec -it ${pod.metadata.name} -- cd ${mountPath} && sh ${prefix}backup.sh ${prefix} && rm ${prefix}backup.sh`
+          );
+          console.log();
+        });
+      }
     );
   }
 
