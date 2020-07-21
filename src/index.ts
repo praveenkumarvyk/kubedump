@@ -66,7 +66,7 @@ export default class KubeDump {
             .reduce((cpvms: any, cpvm: any) => {
               const { mountPath, name, subPath } = cpvm.volumeMount;
               cpvms[
-                `${mountPath}:${name}${subPath ? ':' + subPath : ''}`
+                `${mountPath}:${name}${subPath ? `:${subPath}` : ''}`
               ] = cpvm;
               return cpvms;
             }, {})

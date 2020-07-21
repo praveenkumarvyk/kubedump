@@ -6,11 +6,9 @@
 
 Please ★ this repo if you found it useful ★ ★ ★
 
-
 ## Features
 
-* dump kubernetes volumes
-
+- dump kubernetes volumes
 
 ## Installation
 
@@ -18,31 +16,25 @@ Please ★ this repo if you found it useful ★ ★ ★
 npm install -g kubedump
 ```
 
-
 ## Dependencies
 
-* [NodeJS](https://nodejs.org)
-
+- [NodeJS](https://nodejs.org)
 
 ## Usage
 
 [Contribute](https://github.com/codejamninja/kubedump/blob/master/CONTRIBUTING.md) usage docs
 
-
 ## Support
 
 Submit an [issue](https://github.com/codejamninja/kubedump/issues/new)
-
 
 ## Screenshots
 
 [Contribute](https://github.com/codejamninja/kubedump/blob/master/CONTRIBUTING.md) a screenshot
 
-
 ## Contributing
 
 Review the [guidelines for contributing](https://github.com/codejamninja/kubedump/blob/master/CONTRIBUTING.md)
-
 
 ## License
 
@@ -50,16 +42,13 @@ Review the [guidelines for contributing](https://github.com/codejamninja/kubedum
 
 [Jam Risser](https://codejam.ninja) © 2020
 
-
 ## Changelog
 
 Review the [changelog](https://github.com/codejamninja/kubedump/blob/master/CHANGELOG.md)
 
-
 ## Credits
 
-* [Jam Risser](https://codejam.ninja) - Author
-
+- [Jam Risser](https://codejam.ninja) - Author
 
 ## Support on Liberapay
 
