@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 import kubectl from './kubectl';
 import { mapSeries } from './helpers';
 import { name } from '../package.json';
+import { unpack } from './pack';
 
 const prefix = `__${name}`;
 const workingPath = path.resolve(process.cwd(), 'backups');
@@ -26,20 +27,27 @@ export default class KubeDump {
       Object.values(await this.getCpvmsByPvcName()),
       async (cpvms: Cpvm[]) => {
         await mapSeries(cpvms, async (cpvm: Cpvm) => {
-          const { pod } = cpvm;
+          const { pod, volume } = cpvm;
           if (ns && pod.metadata?.namespace !== ns) return;
-          await this.dumpData(cpvm);
+          const backupPath = path.resolve(
+            workingPath,
+            pod.metadata?.namespace || '',
+            pod.metadata?.name || '',
+            'volumes',
+            volume.name
+          );
+          await this.dumpData(cpvm, backupPath);
         });
       }
     );
   }
 
-  async dumpData({ pod, volumeMount, volume }: Cpvm) {
+  async dumpData({ pod, volumeMount, volume }: Cpvm, backupPath: string) {
     const backupScriptPath = path.resolve(__dirname, '../scripts/backup.sh');
     const { dryrun } = this.options;
     const { mountPath } = volumeMount;
     const volumeName = volume?.name;
-    const backupPath = path.resolve(workingPath, pod.metadata?.name || '');
+    await fs.remove(backupPath);
     await fs.mkdirs(backupPath);
     await kubectl(
       [
@@ -79,7 +87,7 @@ export default class KubeDump {
       [
         'cp',
         `${pod.metadata?.namespace}/${pod.metadata?.name}:${mountPath}/${prefix}/payload/payload.tar.gz`,
-        `${backupPath}/payload.tar.gz`
+        path.resolve(backupPath, 'payload.tar.gz')
       ],
       { dryrun, json: false, pipe: true }
     );
@@ -96,6 +104,8 @@ export default class KubeDump {
       ],
       { dryrun, json: false, pipe: true }
     );
+    await unpack(path.resolve(backupPath, 'payload.tar.gz'), backupPath);
+    await fs.remove(path.resolve(backupPath, 'payload.tar.gz'));
     if (dryrun) process.stdout.write('\n');
   }
 
