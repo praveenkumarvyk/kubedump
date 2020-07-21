@@ -40,11 +40,24 @@ export default class KubeDump {
           await fs.mkdirs(backupPath);
           await kubectl(
             [
+              'exec',
+              '-n',
+              pod.metadata.namespace,
+              pod.metadata.name,
+              '--',
+              'sh',
+              '-c',
+              `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
+            ],
+            { dryrun, json: false, pipe: true }
+          );
+          await kubectl(
+            [
               'cp',
               backupScriptPath,
               `${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}_backup.sh`
             ],
-            { dryrun, json: false }
+            { dryrun, json: false, pipe: true }
           );
           await kubectl(
             [
@@ -57,7 +70,7 @@ export default class KubeDump {
               '-c',
               `"cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh ${mountPath}/${prefix}_backup.sh ${prefix} ${volumeName}"`
             ],
-            { dryrun, json: false }
+            { dryrun, json: false, pipe: true }
           );
           await kubectl(
             [
@@ -65,7 +78,7 @@ export default class KubeDump {
               `${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}/payload/payload.tar.gz`,
               `${backupPath}/payload.tar.gz`
             ],
-            { dryrun, json: false }
+            { dryrun, json: false, pipe: true }
           );
           await kubectl(
             [
@@ -76,9 +89,9 @@ export default class KubeDump {
               '--',
               'sh',
               '-c',
-              `"rm ${mountPath}/${prefix}_backup.sh && rm -rf ${mountPath}/${prefix}"`
+              `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
             ],
-            { dryrun, json: false }
+            { dryrun, json: false, pipe: true }
           );
           if (dryrun) process.stdout.write('\n');
         });

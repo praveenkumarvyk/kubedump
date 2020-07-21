@@ -5,6 +5,7 @@ const logger = console;
 export interface KubectlOptions {
   dryrun: boolean;
   json: boolean;
+  pipe: boolean;
 }
 
 export default async function kubectl(
@@ -12,15 +13,24 @@ export default async function kubectl(
   options: Partial<KubectlOptions> = {}
 ): Promise<any> {
   options = {
-    json: true,
     dryrun: false,
+    json: true,
+    pipe: false,
     ...options
   };
   args = [...args, ...(options.json ? ['-o', 'json'] : [])];
+  const command = `kubectl ${args.join(' ')}`;
   if (options.dryrun) {
-    logger.info(`kubectl ${args.join(' ')}`);
-  } else {
-    const { stdout } = await execa('kubectl', args, { stdio: 'pipe' });
+    logger.info(command);
+    return command;
+  }
+  const p = execa('sh', ['-c', command], { stdio: 'pipe' });
+  if (options.pipe) p.stdout?.pipe(process.stdout);
+  const { stdout } = await p;
+  try {
     return JSON.parse(stdout);
+  } catch (err) {
+    if (!options.pipe) logger.info(stdout);
+    return stdout;
   }
 }

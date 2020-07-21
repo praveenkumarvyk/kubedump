@@ -1,6 +1,8 @@
 import { parse, flags } from '@oclif/parser';
 import KubeDump from '.';
 
+const logger = console;
+
 export default async function main(argv: string[]) {
   const result = parse(argv, {
     strict: false,
@@ -17,5 +19,5 @@ export default async function main(argv: string[]) {
 }
 
 if (typeof require !== 'undefined' && require.main === module) {
-  main(process.argv);
+  main(process.argv).catch(logger.error);
 }
