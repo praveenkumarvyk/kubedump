@@ -7,7 +7,7 @@ MOUNT_PATH=$(pwd)
 PREFIX_PATH=$MOUNT_PATH/$PREFIX
 
 DRY_ECHO=
-if [ $KUBEDUMP_DRYRUN == "true" ]; then
+if [ "$KUBEDUMP_DRYRUN" = "true" ]; then
   DRY_ECHO=echo
 fi
 
@@ -30,15 +30,16 @@ main() {
   deps
   prepare
   package
+  create_payload
 }
 
 deps() {
   if [ ! $HAS_TAR ]; then
-    if [ $OS == "ubuntu" ]; then
+    if [ "$OS" = "ubuntu" ]; then
       apt-get update && apt-get install -y tar
-    elif [ $OS == "alpine" ]; then
+    elif [ "$OS" = "alpine" ]; then
       apk add --no-cache tar
-    elif [ $OS == "arch" ]; then
+    elif [ "$OS" = "arch" ]; then
       yes | pacman -Sy tar
     fi
   fi
@@ -71,7 +72,19 @@ package_mount() {
   CWD=$(pwd)
   $DRY_ECHO cd $MOUNT_PATH
   if [ $HAS_TAR ]; then
-    $DRY_ECHO tar --exclude "./$PREFIX" --exclude './node_modules' -czvf $PREFIX_PATH/$MOUNT_NAME.tar.gz .
+    $DRY_ECHO tar --exclude "./$PREFIX" --exclude "./${PREFIX}_backup.sh" -czvf "${PREFIX_PATH}/${MOUNT_NAME}.tar.gz" .
+  elif [ $HAS_ZIP ]; then
+    echo zipping
+  fi
+  $DRY_ECHO cd $CWD
+}
+
+create_payload() {
+  CWD=$(pwd)
+  $DRY_ECHO cd $PREFIX_PATH
+  $DRY_ECHO mkdir -p $PREFIX_PATH/payload
+  if [ $HAS_TAR ]; then
+    $DRY_ECHO tar --exclude './payload' -czvf $PREFIX_PATH/payload/payload.tar.gz .
   elif [ $HAS_ZIP ]; then
     echo zipping
   fi

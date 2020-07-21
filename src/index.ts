@@ -1,9 +1,13 @@
+import fs from 'fs-extra';
 import path from 'path';
 import kubectl from './kubectl';
 import { mapSeries } from './helpers';
 import { name } from '../package.json';
 
+const dryrun = true;
+const logger = console;
 const prefix = `__${name}`;
+const workingPath = path.resolve(process.cwd(), 'backups');
 
 export default class KubeDump {
   async dump() {
@@ -11,15 +15,25 @@ export default class KubeDump {
     await mapSeries(
       Object.values(await this.getCpvmsByPvcName()),
       async (cpvms: any) => {
-        await mapSeries(cpvms, async ({ pod, volumeMount }: any) => {
+        await mapSeries(cpvms, async ({ pod, volumeMount, volume }: any) => {
           const { mountPath } = volumeMount;
-          console.log(
+          const pvcName = volume?.persistentVolumeClaim?.claimName;
+          const volumeName = volume?.name;
+          const backupPath = path.resolve(workingPath, pvcName);
+          await fs.mkdirs(backupPath);
+          logger.info(
             `kubectl cp ${backupScriptPath} ${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}_backup.sh`
           );
-          console.log(
-            `kubectl exec -it ${pod.metadata.namespace}/${pod.metadata.name} -- cd ${mountPath} && sh ${mountPath}/${prefix}_backup.sh ${prefix} && rm ${mountPath}/${prefix}_backup.sh && rm -rf ${mountPath}/${prefix}`
+          logger.info(
+            `kubectl exec -n ${pod.metadata.namespace} ${pod.metadata.name} -- sh -c "cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh ${mountPath}/${prefix}_backup.sh ${prefix} ${volumeName}"`
           );
-          console.log();
+          logger.info(
+            `kubectl cp -r ${pod.metadata.namespace}/${pod.metadata.name}:${mountPath}/${prefix}/payload/payload.tar.gz ${backupPath}/payload.tar.gz`
+          );
+          logger.info(
+            `kubectl exec -n ${pod.metadata.namespace} ${pod.metadata.name} -- sh -c "rm ${mountPath}/${prefix}_backup.sh && rm -rf ${mountPath}/${prefix}"`
+          );
+          logger.info();
         });
       }
     );
