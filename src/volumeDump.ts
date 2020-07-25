@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import { Pod, Volume, VolumeMount, Container } from 'kubernetes-types/core/v1';
 import os from 'os';
 import path from 'path';
-import yaml from 'js-yaml';
+import Dump, { DumpOptions } from './dump';
 import kubectl from './kubectl';
 import { mapSeries } from './helpers';
 import { name } from '../package.json';
@@ -10,12 +10,13 @@ import { unpack } from './pack';
 
 const prefix = `__${name}`;
 
-export default class VolumeDump {
+export default class VolumeDump extends Dump {
   public options: VolumeDumpOptions;
 
   public workingPath = path.resolve(os.tmpdir(), 'kubedump/dump');
 
   constructor(options: Partial<VolumeDumpOptions> = {}) {
+    super();
     this.options = {
       allNamespaces: false,
       dryrun: false,
@@ -269,18 +270,6 @@ export default class VolumeDump {
   async getPvcs() {
     return (await kubectl(['get', 'pvc', '--all-namespaces'])).items;
   }
-
-  async getActiveNs(): Promise<string> {
-    const kubeconfigPath = path.resolve(os.homedir(), '.kube/config');
-    const kubeconfig = yaml.safeLoad(
-      (await fs.readFile(kubeconfigPath)).toString()
-    ) as any;
-    const kubectx = kubeconfig?.['current-context'];
-    const context = (kubeconfig?.contexts || []).find(
-      (context: any) => context.name === kubectx
-    )?.context;
-    return context.namespace;
-  }
 }
 
 export interface Cpvm {
@@ -311,10 +300,8 @@ export interface PvsByPvcName {
   [pvcName: string]: Pv;
 }
 
-export interface VolumeDumpOptions {
-  allNamespaces?: boolean;
+export interface VolumeDumpOptions extends DumpOptions {
   dryrun: boolean;
-  ns?: string;
   privileged: boolean;
   skipNamespaces: Set<string>;
 }
