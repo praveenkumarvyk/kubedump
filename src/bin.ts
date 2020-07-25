@@ -1,12 +1,20 @@
+import { config } from 'dotenv';
 import { parse, flags } from '@oclif/parser';
 import KubeDump from '.';
+
+config();
+const { RANCHER_TOKEN, RANCHER_ENDPOINT } = process.env;
 
 export default async function main(argv: string[]) {
   const result = parse(argv, {
     strict: false,
     flags: {
       'all-namespaces': flags.boolean({ required: false }),
+      'rancher-dump': flags.boolean({ required: false }),
+      'rancher-endpoint': flags.string({ required: false }),
+      'rancher-token': flags.string({ required: false }),
       'skip-namespaces': flags.string({ required: false }),
+      'volume-dump': flags.boolean({ required: false }),
       dry: flags.boolean({ required: false }),
       namespace: flags.string({ char: 'n', required: false }),
       output: flags.string({ char: 'o', required: false }),
@@ -19,7 +27,11 @@ export default async function main(argv: string[]) {
     ns: result.flags.namespace,
     output: result.flags.output,
     privileged: result.flags.privileged,
-    skipNamespaces: new Set((result.flags['skip-namespaces'] || '').split(','))
+    rancherDump: result.flags['rancher-dump'],
+    rancherEndpoint: result.flags['rancher-endpoint'] || RANCHER_ENDPOINT,
+    rancherToken: result.flags['rancher-token'] || RANCHER_TOKEN,
+    skipNamespaces: new Set((result.flags['skip-namespaces'] || '').split(',')),
+    volumeDump: result.flags['volume-dump']
   });
   await kubeDump.dump();
 }

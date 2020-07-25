@@ -19,7 +19,14 @@ export default class RancherAnswersDump extends Dump {
     if (!ns && !this.options.allNamespaces) {
       ns = this.options.ns || (await this.getActiveNs());
     }
+    console.log({
+      ...this.options,
+      ns
+    });
   }
 }
 
-export interface RancherAnswersDumpOptions extends DumpOptions {}
+export interface RancherAnswersDumpOptions extends DumpOptions {
+  rancherEndpoint?: string;
+  rancherToken?: string;
+}

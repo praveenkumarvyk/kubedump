@@ -1,9 +1,11 @@
 import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
-import RancherAnswersDump from './rancherAnswersDump';
-import VolumeDump from './volumeDump';
+import VolumeDump, { VolumeDumpOptions } from './volumeDump';
 import { pack } from './pack';
+import RancherAnswersDump, {
+  RancherAnswersDumpOptions
+} from './rancherAnswersDump';
 
 export default class KubeDump {
   public options: KubeDumpOptions;
@@ -34,25 +36,33 @@ export default class KubeDump {
   }
 
   async dump(ns?: string) {
-    await this.volumeDump.dump(ns);
-    await this.rancherAnswersDump.dump(ns);
+    const dumpAll =
+      typeof this.options.rancherDump === 'undefined' &&
+      typeof this.options.volumeDump === 'undefined';
+    if (dumpAll || this.options.volumeDump) {
+      await this.volumeDump.dump(ns);
+    }
+    if (dumpAll || this.options.rancherDump) {
+      await this.rancherAnswersDump.dump(ns);
+    }
     if (this.options.dryrun) return;
-    await pack(
-      this.workingPath,
-      path.resolve(
-        this.options.output,
-        `kubedump_${Date.now().toString()}.tar.gz`
-      )
-    );
-    await fs.remove(this.workingPath);
+    if (await fs.pathExists(this.workingPath)) {
+      await pack(
+        this.workingPath,
+        path.resolve(
+          this.options.output,
+          `kubedump_${Date.now().toString()}.tar.gz`
+        )
+      );
+      await fs.remove(this.workingPath);
+    }
   }
 }
 
-export interface KubeDumpOptions {
-  allNamespaces?: boolean;
-  dryrun: boolean;
-  ns?: string;
+export interface KubeDumpOptions
+  extends RancherAnswersDumpOptions,
+    VolumeDumpOptions {
   output: string;
-  privileged: boolean;
-  skipNamespaces: Set<string>;
+  rancherDump?: boolean;
+  volumeDump?: boolean;
 }
