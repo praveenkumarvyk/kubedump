@@ -1,10 +1,19 @@
 import tar from 'tar';
 
 export async function unpack(archivePath: string, cwd = process.cwd()) {
-  tar.x({
+  await tar.x({
     file: archivePath,
     cwd
   });
 }
 
-export async function pack() {}
+export async function pack(folderPath: string, archivePath: string) {
+  await tar.c(
+    {
+      cwd: folderPath,
+      file: archivePath,
+      gzip: true
+    },
+    ['.']
+  );
+}

@@ -9,28 +9,39 @@ import { name } from '../package.json';
 import { unpack } from './pack';
 
 const prefix = `__${name}`;
-const workingPath = path.resolve(process.cwd(), 'backups');
 
 export default class VolumeDump {
   public options: VolumeDumpOptions;
 
+  public workingPath = path.resolve(os.tmpdir(), 'kubedump/dump');
+
   constructor(options: Partial<VolumeDumpOptions> = {}) {
     this.options = {
+      allNamespaces: false,
       dryrun: false,
+      privileged: false,
+      skipNamespaces: new Set(),
       ...options
     };
   }
 
   async dump(ns?: string) {
-    if (!ns) ns = this.options.ns || (await this.getActiveNs());
+    if (!ns && !this.options.allNamespaces) {
+      ns = this.options.ns || (await this.getActiveNs());
+    }
     await mapSeries(
       Object.values(await this.getCpvmsByPvcName()),
       async (cpvms: Cpvm[]) => {
         await mapSeries(cpvms, async (cpvm: Cpvm) => {
           const { pod } = cpvm;
-          if (ns && pod.metadata?.namespace !== ns) return;
+          if (
+            (ns && pod.metadata?.namespace !== ns) ||
+            this.options.skipNamespaces.has(pod.metadata?.namespace!)
+          ) {
+            return;
+          }
           const namespacePath = path.resolve(
-            workingPath,
+            this.workingPath,
             pod.metadata?.namespace || ''
           );
           const volumesPath = path.resolve(
@@ -89,14 +100,14 @@ export default class VolumeDump {
     }
     await kubectl(
       [
-        'exec',
+        ...(this.options.privileged ? ['exec-as', '-u', 'root'] : ['exec']),
         '-n',
         pod.metadata?.namespace || '',
         pod.metadata?.name || '',
         '--',
         'sh',
         '-c',
-        `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
+        `"rm /tmp/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
       ],
       { dryrun, json: false, pipe: true }
     );
@@ -104,20 +115,20 @@ export default class VolumeDump {
       [
         'cp',
         backupScriptPath,
-        `${pod.metadata?.namespace}/${pod.metadata?.name}:${mountPath}/${prefix}_backup.sh`
+        `${pod.metadata?.namespace}/${pod.metadata?.name}:/tmp/${prefix}_backup.sh`
       ],
       { dryrun, json: false, pipe: true }
     );
     await kubectl(
       [
-        'exec',
+        ...(this.options.privileged ? ['exec-as', '-u', 'root'] : ['exec']),
         '-n',
         pod.metadata?.namespace || '',
         pod.metadata?.name || '',
         '--',
         'sh',
         '-c',
-        `"cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh ${mountPath}/${prefix}_backup.sh ${prefix} ${volumeName}${
+        `"cd ${mountPath} && KUBEDUMP_DRYRUN=${dryrun} sh /tmp/${prefix}_backup.sh ${prefix} ${volumeName}${
           subPaths.length ? ` ${subPaths.join(',')}` : ''
         }"`
       ],
@@ -135,27 +146,25 @@ export default class VolumeDump {
     );
     await kubectl(
       [
-        'exec',
+        ...(this.options.privileged ? ['exec-as', '-u', 'root'] : ['exec']),
         '-n',
         pod.metadata?.namespace || '',
         pod.metadata?.name || '',
         '--',
         'sh',
         '-c',
-        `"rm ${mountPath}/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
+        `"rm /tmp/${prefix}_backup.sh 2>/dev/null || true && rm -rf ${mountPath}/${prefix} 2>/dev/null || true"`
       ],
       { dryrun, json: false, pipe: true }
     );
     if (dryrun) {
       process.stdout.write('\n');
-    } else {
-      if (subPaths.length) {
-        await unpack(
-          path.resolve(volumesPath, volumeName, 'payload/payload.tar.gz'),
-          path.resolve(volumesPath, volumeName)
-        );
-        await fs.remove(path.resolve(volumesPath, volumeName, 'payload'));
-      }
+    } else if (subPaths.length) {
+      await unpack(
+        path.resolve(volumesPath, volumeName, 'payload/payload.tar.gz'),
+        path.resolve(volumesPath, volumeName)
+      );
+      await fs.remove(path.resolve(volumesPath, volumeName, 'payload'));
     }
   }
 
@@ -303,6 +312,9 @@ export interface PvsByPvcName {
 }
 
 export interface VolumeDumpOptions {
+  allNamespaces?: boolean;
   dryrun: boolean;
   ns?: string;
+  privileged: boolean;
+  skipNamespaces: Set<string>;
 }

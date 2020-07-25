@@ -11,6 +11,7 @@
     "kubectl",
     "kubectx",
     "kubedump",
+    "kubernetes",
     "mkdirs",
     "oclif",
     "pvcs",

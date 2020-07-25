@@ -1,3 +1,5 @@
 #!/usr/bin/env node
 
-require('../lib/bin');
+if (typeof require !== 'undefined' && require.main === module) {
+  require('../lib/bin').default(process.argv).catch(console.error);
+}
