@@ -15,6 +15,8 @@ export default class VolumeDump extends Dump {
 
   public workingPath = path.resolve(os.tmpdir(), 'kubedump/dump');
 
+  public errors?: Error[];
+
   constructor(options: Partial<VolumeDumpOptions> = {}) {
     super();
     this.options = {
@@ -54,7 +56,12 @@ export default class VolumeDump extends Dump {
             await fs.remove(volumesPath);
             await fs.mkdirs(volumesPath);
           }
-          await this.dumpData(cpvm, volumesPath);
+          try {
+            await this.dumpData(cpvm, volumesPath);
+          } catch (err) {
+            if (!this.errors) this.errors = [];
+            this.errors.push(err);
+          }
         });
       }
     );

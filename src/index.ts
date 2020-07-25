@@ -60,6 +60,11 @@ export default class KubeDump {
       );
       await fs.remove(this.workingPath);
     }
+    if (this.volumeDump.errors?.length) {
+      const poppedError = this.volumeDump.errors.pop();
+      this.volumeDump.errors.map((err: Error) => console.error(err));
+      throw poppedError;
+    }
   }
 }
 
