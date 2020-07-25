@@ -2,8 +2,18 @@
   "language": "en",
   "version": "0.1",
   "words": [
+    "cpvm",
+    "cpvms",
     "dryrun",
     "execa",
-    "kubectl"
+    "kube",
+    "kubeconfig",
+    "kubectl",
+    "kubectx",
+    "kubedump",
+    "mkdirs",
+    "oclif",
+    "pvcs",
+    "subpaths"
   ]
 }

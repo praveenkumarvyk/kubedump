@@ -2,7 +2,7 @@
 
 PREFIX=$1
 MOUNT_NAME=$2
-HAS_SUB=$3
+SUBPATH_MOUNTS=$3
 MOUNT_PATH=$(pwd)
 PREFIX_PATH=$MOUNT_PATH/$PREFIX
 
@@ -50,13 +50,14 @@ deps() {
 }
 
 prepare() {
+  $DRY_ECHO cd $MOUNT_PATH
   $DRY_ECHO mkdir -p $PREFIX
 }
 
 package() {
-  if [ $HAS_SUB ]; then
-    for f in $(ls -d -- */); do
-      sub=${f%?}
+  SUBPATHS=$(echo $SUBPATH_MOUNTS | sed 's/,/ /g')
+  if [ "$SUBPATHS" ]; then
+    for sub in $SUBPATHS; do
       if [ $sub != $PREFIX ]; then
         package_mount $MOUNT_PATH/$sub $sub
       fi
@@ -89,6 +90,24 @@ create_payload() {
     echo zipping
   fi
   $DRY_ECHO cd $CWD
+}
+
+folders() {
+  for i in $(ls -d */); do
+    CWD=$(pwd)
+    if [ "$CWD" != "/" ]; then
+      CWD=$CWD/
+    fi
+    echo ${CWD}${i%?}
+  done
+}
+
+mounts() {
+  for i in $(df 2>/dev/null | sed 's/[^ ]* //g'); do
+    if [ "$(echo $i | cut -c 1)" = "/" ]; then
+      echo $i
+    fi
+  done
 }
 
 main
