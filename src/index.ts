@@ -22,7 +22,7 @@ export default class KubeDump {
       privileged: false,
       skipNamespaces: new Set(),
       ...options,
-      output: options.output || path.resolve(process.cwd(), 'kubedump')
+      output: options.output || path.resolve(process.cwd())
     };
     this.volumeDump = new VolumeDump(this.options);
     this.volumeDump.workingPath = this.workingPath;
