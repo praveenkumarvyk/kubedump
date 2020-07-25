@@ -68,12 +68,12 @@ package() {
 }
 
 package_mount() {
-  MOUNT_PATH=$1
-  MOUNT_NAME=$2
+  PACKAGE_PATH=$1
+  PACKAGE_NAME=$2
   CWD=$(pwd)
-  $DRY_ECHO cd $MOUNT_PATH
+  $DRY_ECHO cd $PACKAGE_PATH
   if [ $HAS_TAR ]; then
-    $DRY_ECHO tar --exclude "./$PREFIX" --exclude "./${PREFIX}_backup.sh" -czvf "${PREFIX_PATH}/${MOUNT_NAME}.tar.gz" .
+    $DRY_ECHO tar --exclude "./$PREFIX" --exclude "./${PREFIX}_backup.sh" -czvf "${PREFIX_PATH}/${PACKAGE_NAME}.tar.gz" .
   elif [ $HAS_ZIP ]; then
     echo zipping
   fi
