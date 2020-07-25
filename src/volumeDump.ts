@@ -40,7 +40,7 @@ export default class VolumeDump {
             volume.name
           );
           if (!this.options.dryrun) {
-            await fs.remove(namespacePath);
+            await fs.remove(backupPath);
             await fs.mkdirs(backupPath);
           }
           await this.dumpData(cpvm, backupPath);
