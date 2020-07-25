@@ -1,6 +1,6 @@
 {
   "name": "kubedump",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "dump kubernetes",
   "keywords": [
     "kubedump",
@@ -49,6 +49,8 @@
   "dependencies": {
     "@babel/runtime": "^7.10.5",
     "@oclif/parser": "^3.8.5",
+    "axios": "^0.19.2",
+    "axios-logger": "^2.3.1",
     "core-js": "^3.6.5",
     "dotenv": "^8.2.0",
     "execa": "^4.0.3",

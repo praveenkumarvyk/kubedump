@@ -47,8 +47,8 @@ export default class VolumeDump extends Dump {
           );
           const volumesPath = path.resolve(
             namespacePath,
-            pod.metadata?.name || '',
-            'volumes'
+            'volumes',
+            pod.metadata?.name || ''
           );
           if (!this.options.dryrun) {
             await fs.remove(volumesPath);
@@ -303,5 +303,4 @@ export interface PvsByPvcName {
 export interface VolumeDumpOptions extends DumpOptions {
   dryrun: boolean;
   privileged: boolean;
-  skipNamespaces: Set<string>;
 }

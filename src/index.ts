@@ -25,6 +25,9 @@ export default class KubeDump {
       allNamespaces: false,
       dryrun: false,
       privileged: false,
+      rancherCluster: '',
+      rancherEndpoint: '',
+      rancherToken: '',
       skipNamespaces: new Set(),
       ...options,
       output: options.output || path.resolve(process.cwd())
@@ -47,6 +50,7 @@ export default class KubeDump {
     }
     if (this.options.dryrun) return;
     if (await fs.pathExists(this.workingPath)) {
+      await fs.mkdirp(this.options.output);
       await pack(
         this.workingPath,
         path.resolve(

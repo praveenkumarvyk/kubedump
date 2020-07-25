@@ -28,4 +28,5 @@ export default abstract class VolumeDump {
 export interface DumpOptions {
   allNamespaces?: boolean;
   ns?: string;
+  skipNamespaces: Set<string>;
 }
