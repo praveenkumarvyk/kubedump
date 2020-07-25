@@ -27,23 +27,22 @@ export default class VolumeDump {
       Object.values(await this.getCpvmsByPvcName()),
       async (cpvms: Cpvm[]) => {
         await mapSeries(cpvms, async (cpvm: Cpvm) => {
-          const { pod, volume } = cpvm;
+          const { pod } = cpvm;
           if (ns && pod.metadata?.namespace !== ns) return;
           const namespacePath = path.resolve(
             workingPath,
             pod.metadata?.namespace || ''
           );
-          const backupPath = path.resolve(
+          const volumesPath = path.resolve(
             namespacePath,
             pod.metadata?.name || '',
-            'volumes',
-            volume.name
+            'volumes'
           );
           if (!this.options.dryrun) {
-            await fs.remove(backupPath);
-            await fs.mkdirs(backupPath);
+            await fs.remove(volumesPath);
+            await fs.mkdirs(volumesPath);
           }
-          await this.dumpData(cpvm, backupPath);
+          await this.dumpData(cpvm, volumesPath);
         });
       }
     );
@@ -75,7 +74,7 @@ export default class VolumeDump {
 
   async dumpData(
     { pod, volumeMount, volume, relatedContainers }: Cpvm,
-    backupPath: string
+    volumesPath: string
   ) {
     const backupScriptPath = path.resolve(__dirname, '../scripts/backup.sh');
     const { dryrun } = this.options;
@@ -85,6 +84,9 @@ export default class VolumeDump {
       relatedContainers,
       volume.name
     );
+    if (!this.options.dryrun && subPaths.length) {
+      await fs.mkdirp(path.resolve(volumesPath, volumeName, 'payload'));
+    }
     await kubectl(
       [
         'exec',
@@ -125,7 +127,9 @@ export default class VolumeDump {
       [
         'cp',
         `${pod.metadata?.namespace}/${pod.metadata?.name}:${mountPath}/${prefix}/payload/payload.tar.gz`,
-        path.resolve(backupPath, 'payload.tar.gz')
+        subPaths.length
+          ? path.resolve(volumesPath, volumeName, 'payload/payload.tar.gz')
+          : path.resolve(volumesPath, `${volumeName}.tar.gz`)
       ],
       { dryrun, json: false, pipe: true }
     );
@@ -145,8 +149,13 @@ export default class VolumeDump {
     if (dryrun) {
       process.stdout.write('\n');
     } else {
-      await unpack(path.resolve(backupPath, 'payload.tar.gz'), backupPath);
-      await fs.remove(path.resolve(backupPath, 'payload.tar.gz'));
+      if (subPaths.length) {
+        await unpack(
+          path.resolve(volumesPath, volumeName, 'payload/payload.tar.gz'),
+          path.resolve(volumesPath, volumeName)
+        );
+        await fs.remove(path.resolve(volumesPath, volumeName, 'payload'));
+      }
     }
   }
 

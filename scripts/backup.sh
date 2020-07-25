@@ -84,10 +84,14 @@ create_payload() {
   CWD=$(pwd)
   $DRY_ECHO cd $PREFIX_PATH
   $DRY_ECHO mkdir -p $PREFIX_PATH/payload
-  if [ $HAS_TAR ]; then
-    $DRY_ECHO tar --exclude './payload' -czvf $PREFIX_PATH/payload/payload.tar.gz .
-  elif [ $HAS_ZIP ]; then
-    echo zipping
+  if [ "$SUBPATHS" ]; then
+    if [ $HAS_TAR ]; then
+      $DRY_ECHO tar --exclude './payload' -czvf $PREFIX_PATH/payload/payload.tar.gz .
+    elif [ $HAS_ZIP ]; then
+      echo zipping
+    fi
+  else
+    $DRY_ECHO mv "${PREFIX_PATH}/${PACKAGE_NAME}.tar.gz" $PREFIX_PATH/payload/payload.tar.gz
   fi
   $DRY_ECHO cd $CWD
 }
