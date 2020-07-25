@@ -19,10 +19,10 @@ export default class KubeDump {
     this.options = {
       allNamespaces: false,
       dryrun: false,
-      output: path.resolve(process.cwd(), 'kubedump'),
       privileged: false,
       skipNamespaces: new Set(),
-      ...options
+      ...options,
+      output: options.output || path.resolve(process.cwd(), 'kubedump')
     };
     this.volumeDump = new VolumeDump(this.options);
     this.volumeDump.workingPath = this.workingPath;
@@ -33,7 +33,10 @@ export default class KubeDump {
     if (this.options.dryrun) return;
     await pack(
       this.workingPath,
-      path.resolve(this.options.output, 'kubedump_{Date.now()}.tar.gz')
+      path.resolve(
+        this.options.output,
+        `kubedump_${Date.now().toString()}.tar.gz`
+      )
     );
     await fs.remove(this.workingPath);
   }
